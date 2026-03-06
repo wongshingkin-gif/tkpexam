@@ -1,21 +1,17 @@
 {
-  "name": "班級評分系統",
-  "short_name": "評分系統",
-  "description": "用來紀錄學生加扣分的系統",
+  "name": "TKP成績分析系統",
+  "short_name": "TKP成績分析",
+  "description": "強大的自動化試卷成績與鑑別度分析系統",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#4CAF50",
+  "background_color": "#f0f2f5",
+  "theme_color": "#3498db",
   "icons": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
+      "src": "tkpexam.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ]
+
 }
