@@ -1,98 +1,558 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>班級評分系統</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TKP成績分析系統</title>
+    
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4CAF50">
+    <meta name="theme-color" content="#3498db">
+    <link rel="apple-touch-icon" href="tkpexam.png"> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
-        .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .btn { padding: 10px 15px; margin-left: 5px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
-        .btn-add { background-color: #4CAF50; }
-        .btn-sub { background-color: #f44336; }
-        #status { color: #888; margin-bottom: 15px; }
+        body { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; background: #f0f2f5; padding: 20px; color: #333; margin: 0; }
+        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.08); }
+        
+        /* UI Components */
+        .btn { background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .btn:hover { background: #2980b9; }
+        .btn-success { background: #27ae60; } 
+        .btn-print { background: #7f8c8d; }
+        .btn-batch { background: #8e44ad; }
+        .btn-page-export { background: #2c3e50; float: right; margin-top: -50px; } 
+        
+        #installAppBtn { display: none; background: #e67e22; margin-bottom: 20px; width: 100%; font-size: 16px; padding: 12px; }
+
+        input[type="number"] { width: 60px; text-align: center; padding: 4px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        /* Tabs */
+        .tabs { display: flex; flex-wrap: wrap; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .tab { padding: 12px 20px; cursor: pointer; font-weight: bold; color: #7f8c8d; border-bottom: 3px solid transparent; flex-grow: 1; text-align: center; }
+        .tab.active { color: #3498db; border-bottom: 3px solid #3498db; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Tables & Stats */
+        table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+        th, td { border: 1px solid #eee; padding: 8px; text-align: center; }
+        th { background: #f8f9fa; color: #2c3e50; font-weight: 600; }
+        .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .card { padding: 15px; border-radius: 10px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-top: 5px solid #3498db; text-align: center; }
+        .card h4 { margin: 0 0 5px 0; color: #7f8c8d; font-size: 12px; text-transform: uppercase; }
+        .card .val { font-size: 22px; font-weight: bold; color: #2c3e50; }
+
+        /* Grade Badges */
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 12px; color: white; display: inline-block; font-weight: bold; min-width: 35px; text-shadow: 0 1px 1px rgba(0,0,0,0.3); }
+        .g-5ss { background: #FF0000; } .g-5s { background: #FF7F00; } .g-5 { background: #FFD700; color:#333; text-shadow:none; }   
+        .g-4 { background: #008000; } .g-3 { background: #00FFFF; color:#333; text-shadow:none; } .g-2 { background: #0000FF; } .g-1 { background: #8B00FF; } .g-u { background: #555555; }   
+        .di-good { background: #27ae60; color:white; } .di-warn { background: #f39c12; color:white; } .di-bad { background: #e74c3c; color:white; }
+        
+        /* Quadrant Legend */
+        .q-legend { display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:12px; margin-top:10px; background:#fafafa; padding:10px; border-radius:5px;}
+        .q-item { display:flex; align-items:center; gap:5px; }
+
+        /* Report Area */
+        .report-box { border: 1px solid #ddd; padding: 20px; border-radius: 10px; margin-top: 20px; background: #fff; overflow-x: auto; }
+        .report-header { display: flex; justify-content: space-between; border-bottom: 2px solid #3498db; padding-bottom: 15px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; gap: 10px;}
+        .sub-title { font-size: 16px; font-weight: bold; color: #2c3e50; margin: 25px 0 10px 0; border-left: 5px solid #3498db; padding-left: 10px; background: #f8f9fa; padding: 8px; border-radius: 0 5px 5px 0;}
+
+        /* Batch Print Area */
+        #batch-print-area { display: none; background: white; padding: 20px; }
+        
+        /* Loading Overlay */
+        #loading-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:9999; text-align:center; padding-top:200px; }
+
+        /* Responsive Fixes for Mobile */
+        @media (max-width: 768px) {
+            .btn-page-export { float: none; width: 100%; margin-top: 10px; margin-bottom: 15px; }
+            .container { padding: 15px; }
+            .report-header { flex-direction: column; align-items: flex-start; }
+            .report-header div { width: 100%; text-align: left !important; }
+        }
+
+        /* --- PRINT LOGIC V29 --- */
+        @media print {
+            body * { visibility: hidden; }
+            #loading-overlay, #installAppBtn { display: none !important; }
+            body.batch-mode #batch-print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; margin:0; padding:0;}
+            body.batch-mode #batch-print-area * { visibility: visible; }
+            body.batch-mode .container { display: none; }
+            body.print-individual #individual-report.active { position: absolute; left: 0; top: 0; width: 100%; }
+            body.print-individual #individual-report.active * { visibility: visible; }
+            body.print-overview #overview.active { position: absolute; left: 0; top: 0; width: 100%; }
+            body.print-overview #overview.active * { visibility: visible; }
+            body.print-item-analysis #item-analysis.active { position: absolute; left: 0; top: 0; width: 100%; }
+            body.print-item-analysis #item-analysis.active * { visibility: visible; }
+            body.print-student-list #student-list.active { position: absolute; left: 0; top: 0; width: 100%; }
+            body.print-student-list #student-list.active * { visibility: visible; }
+            .btn, .tabs, .no-print, input, select { display: none !important; }
+            .page-break { page-break-after: always; display: block; height: 1px; margin-bottom: 20px;}
+            .report-box { border: none !important; padding: 0 !important; margin-top: 0 !important; }
+        }
     </style>
 </head>
 <body>
 
-    <h2>📝 班級評分系統</h2>
-    <div id="status">資料載入中...</div>
-    <div id="student-list"></div>
+<div id="loading-overlay">
+    <h2 style="color:#2c3e50;">🔄 正在處理...</h2>
+    <p id="loading-progress" style="font-weight:bold; color:#3498db;">初始化中...</p>
+</div>
 
-    <script>
-        // ⚠️ 請填入您的 Google Apps Script 網址
-        const GAS_URL = "YOUR_GAS_URL_HERE"; 
+<div class="container" id="main-container">
+  <div style="text-align:center; margin-bottom: 20px;">
+    <img src="tkpexam.png" alt="圖示" style="width: 80px; height: auto; display: block; margin: 0 auto 10px;">
+    <h2 style="margin: 0;">TKP成績分析系統</h2>
+</div>
 
-        // 註冊 Service Worker (PWA 的核心)
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-            .then(() => console.log("Service Worker 註冊成功"))
-            .catch(err => console.log("Service Worker 註冊失敗", err));
-        }
+    <div id="step1" style="background:#fafafa; padding:20px; text-align:center; border:2px dashed #bdc3c7; border-radius:8px;">
+        <h3>📂 第一步：匯入數據 Excel</h3>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" onchange="parseExcel(this)" style="max-width: 100%;">
+    </div>
 
-        // 取得學生名單
-        async function loadData() {
-            document.getElementById("status").innerText = "資料載入中...";
-            try {
-                const response = await fetch(GAS_URL);
-                const data = await response.json();
-                renderList(data);
-                document.getElementById("status").innerText = "資料已更新";
-            } catch (error) {
-                document.getElementById("status").innerText = "連線失敗，請檢查網路";
-            }
-        }
+    <div id="step2" style="display:none; margin-top:20px;">
+        <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content: center;">
+            <div style="flex:1; min-width:300px; padding:15px; border:1px solid #eee; border-radius:8px;">
+                <h3 style="text-align:center">⚖️ 1. 設定部分權重</h3>
+                <div style="text-align:center; margin-bottom:10px; font-weight:bold; color:#3498db;" id="weightSumDisplay"></div>
+                <table style="width:100%;">
+                    <thead><tr><th>分卷 - 部分</th><th>比重</th></tr></thead>
+                    <tbody id="configBody"></tbody>
+                </table>
+            </div>
+            <div style="flex:1; min-width:300px; padding:15px; border:1px solid #eee; border-radius:8px; background:#fcfcfc;">
+                <h3 style="text-align:center">🏆 2. 設定等級分數線 (%)</h3>
+                <table style="width:100%;">
+                    <thead><tr><th>等級</th><th>最低分數(%)</th><th>等級</th><th>最低分數(%)</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="badge g-5ss">5**</span></td><td><input type="number" id="c5ss" value="90"></td><td><span class="badge g-4">4</span></td><td><input type="number" id="c4" value="60"></td></tr>
+                        <tr><td><span class="badge g-5s">5*</span></td><td><input type="number" id="c5s" value="80"></td><td><span class="badge g-3">3</span></td><td><input type="number" id="c3" value="50"></td></tr>
+                        <tr><td><span class="badge g-5">5</span></td><td><input type="number" id="c5" value="70"></td><td><span class="badge g-2">2</span></td><td><input type="number" id="c2" value="40"></td></tr>
+                        <tr><td></td><td></td><td><span class="badge g-1">1</span></td><td><input type="number" id="c1" value="20"></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:20px;">
+            <button class="btn btn-success" onclick="runAnalysis()" style="width:100%; padding:15px; font-size:16px;">🚀 生成詳細分析報告</button>
+        </div>
+    </div>
 
-        // 渲染畫面
-        function renderList(students) {
-            const listDiv = document.getElementById("student-list");
-            listDiv.innerHTML = ""; 
-            students.forEach(student => {
-                const card = document.createElement("div");
-                card.className = "card";
-                card.innerHTML = `
-                    <div>
-                        <strong>${student.n}</strong> (學號: ${student.id}) <br>
-                        <span style="color:#ff9800; font-size:1.2em;">分數: <span id="score-${student.id}">${student.s}</span></span>
-                    </div>
-                    <div>
-                        <button class="btn btn-add" onclick="updateScore('${student.id}', 1)">+1</button>
-                        <button class="btn btn-sub" onclick="updateScore('${student.id}', -1)">-1</button>
-                    </div>
-                `;
-                listDiv.appendChild(card);
-            });
-        }
+    <div id="dashboard" style="display:none; margin-top:20px;">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('overview')">📊 總覽</div>
+            <div class="tab" onclick="switchTab('item-analysis')">🔎 鑑別度</div>
+            <div class="tab" onclick="switchTab('student-list')">📝 全體</div>
+            <div class="tab" onclick="switchTab('individual-report')">👤 個人報告</div>
+        </div>
 
-        // 加分/扣分動作
-        function updateScore(id, change) {
-            const scoreElement = document.getElementById(`score-${id}`);
-            let currentScore = parseInt(scoreElement.innerText);
-            let newScore = currentScore + change;
+        <div id="overview" class="tab-content active">
+            <button class="btn btn-page-export" onclick="printPage('overview')">🖨️ 列印此頁面</button>
+            <div class="grid-stats">
+                <div class="card"><h4>平均 / 中位數</h4><div class="val"><span id="ovMean">-</span> / <span id="ovMedian">-</span></div></div>
+                <div class="card" style="border-color:#2ecc71"><h4>優良率 (L4+)</h4><div class="val" id="ovDistinction">-</div></div>
+                <div class="card" style="border-color:#3498db"><h4>及格率 (L2+)</h4><div class="val" id="ovPass">-</div></div>
+                <div class="card" style="border-color:#e67e22"><h4>標準差 (SD)</h4><div class="val" id="ovSD">-</div></div>
+            </div>
+
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
+                <div style="flex:1; min-width:100%; background:white; padding:15px; border-radius:8px; border:1px solid #eee; overflow-x:auto;">
+                    <table id="gradeStatTable"><thead><tr><th>等級</th><th>人數</th><th>百分比</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+
+            <div style="background:white; padding:15px; border-radius:8px; border:1px solid #eee; margin-bottom:20px;">
+                <h4 style="text-align:center">📈 分數分佈線性圖</h4>
+                <canvas id="scoreDistChart"></canvas>
+            </div>
             
-            // 畫面先即時更新 (提升使用者體驗)
-            scoreElement.innerText = newScore;
-            document.getElementById("status").innerText = "儲存中...";
+            <div style="background:white; padding:15px; border-radius:8px; border:1px solid #eee; margin-bottom:20px;">
+                <h4 style="text-align:center">📚 班級課題表現分析</h4>
+                <div style="height:350px;"><canvas id="topicDistChart"></canvas></div>
+            </div>
 
-            // 寄送資料到後台
-            fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ id: id, score: newScore }),
-                // 使用 no-cors 避免跨域阻擋問題，雖然收不到完整 response，但能成功送出
-                mode: "no-cors", 
-                headers: { "Content-Type": "application/json" }
-            }).then(() => {
-                document.getElementById("status").innerText = "儲存成功";
-            }).catch(() => {
-                document.getElementById("status").innerText = "儲存失敗，請重試";
-                scoreElement.innerText = currentScore; // 失敗則退回原分數
+            <div style="background:white; padding:15px; border-radius:8px; border:1px solid #eee; margin-bottom:20px;">
+                <h4 style="text-align:center">🧩 四象限分析 (MC vs LQ)</h4>
+                <canvas id="quadrantChart"></canvas>
+            </div>
+            
+            <div style="background:white; padding:15px; border-radius:8px; border:1px solid #eee;">
+                <h4 style="text-align:center">各部分能力雷達圖</h4>
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+
+        <div id="item-analysis" class="tab-content">
+            <button class="btn btn-page-export" onclick="printPage('item-analysis')">🖨️ 列印</button>
+            <div style="overflow-x:auto;">
+                <table id="itemAnalysisTable" style="min-width: 600px;">
+                    <thead><tr><th>分卷</th><th>部分</th><th>題號</th><th>得分率</th><th>鑑別度</th><th>作答分佈(綠:正/紅:陷)</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="student-list" class="tab-content">
+            <button class="btn btn-page-export" onclick="printPage('student-list')">🖨️ 列印</button>
+            <div style="margin-bottom:10px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <select id="sortMode" onchange="renderStudentTable()" style="padding:5px;">
+                    <option value="rank">🏆 依總分排名</option>
+                    <option value="original">🆔 依匯入順序</option>
+                </select>
+                <button class="btn" onclick="exportToExcel()" style="background:#217346;">📥 匯出 Excel</button>
+            </div>
+            <div style="overflow-x:auto;"><table id="studentTable" style="min-width:600px;"><thead></thead><tbody></tbody></table></div>
+        </div>
+
+        <div id="individual-report" class="tab-content">
+            <div class="no-print" style="margin-bottom:20px; display:flex; gap:10px; flex-direction:column; background:#eee; padding:15px; border-radius:8px;">
+                <select id="studentSelect" onchange="renderIndividualReport()" style="padding:10px; width:100%; font-size:16px;"></select>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <button class="btn btn-print" onclick="printPage('individual')" style="flex:1;">🖨️ 單印</button>
+                    <button class="btn btn-batch" onclick="batchPrint()" style="flex:2;">📥 批次印全班(PDF)</button>
+                </div>
+            </div>
+            
+            <div class="report-box" id="reportArea" style="display:none;">
+                <div class="report-header">
+                    <div><h2 id="repName" style="margin:0;">姓名</h2></div>
+                    <div style="text-align:right;">
+                        <span id="repScore" style="font-size:20px; margin-right:10px;">-</span>
+                        <span id="repGrade" class="badge" style="font-size:24px;">-</span>
+                    </div>
+                </div>
+                
+                <div class="sub-title">1. 分卷與部分成績</div>
+                <div style="overflow-x:auto;">
+                    <table id="repTable"><thead><tr style="background:#f1f1f1;"><th>部分</th><th>個人</th><th>平均</th><th>評語</th></tr></thead><tbody id="repTableBody"></tbody></table>
+                </div>
+                
+                <div style="height: 300px; margin-top:20px;"><canvas id="studentRadarChart"></canvas></div>
+
+                <div class="sub-title">2. 課題強弱分析</div>
+                <div style="overflow-x:auto;">
+                    <table id="repTopicTable"><thead><tr style="background:#f1f1f1;"><th>課題</th><th>滿分</th><th>個人</th><th>個人%</th><th>班級%</th><th>評估</th></tr></thead><tbody id="repTopicTableBody"></tbody></table>
+                </div>
+
+                <div style="background:#f9f9f9; padding:15px; border-left:4px solid #f39c12; margin-top:20px; font-size:14px;">
+                    <strong>👨‍🏫 學習建議：</strong><p id="repComment" style="margin-bottom:0;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="batch-print-area"></div>
+
+<script>
+    // ==========================================
+    // PWA Service Worker Registration & Prompt
+    // ==========================================
+    let deferredPrompt;
+    
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('ServiceWorker registered'))
+                .catch(err => console.log('ServiceWorker failed: ', err));
+        });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const installBtn = document.getElementById('installAppBtn');
+        installBtn.style.display = 'block';
+
+        installBtn.addEventListener('click', () => {
+            installBtn.style.display = 'none';
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                deferredPrompt = null;
             });
+        });
+    });
+
+    // ==========================================
+    // Core Logic (v28 logic retained fully)
+    // ==========================================
+    let rawData = {}, finalResults = [], globalStats = {}, charts = {};
+    const gradeOrder = ["5**", "5*", "5", "4", "3", "2", "1", "U"];
+    const gradeColors = {'5**':'#FF0000', '5*':'#FF7F00', '5':'#FFD700', '4':'#008000', '3':'#00FFFF', '2':'#0000FF', '1':'#8B00FF', 'U':'#555555'};
+
+    function switchTab(id) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`.tab[onclick="switchTab('${id}')"]`).classList.add('active');
+        document.getElementById(id).classList.add('active');
+    }
+
+    function parseExcel(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+            const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1});
+            if(json.length < 7) return alert("格式錯誤：請確保有 6 行表頭 (Row 1-6)");
+
+            const headers = json[0], papers = json[1], sections = json[2], topics = json[3], keys = json[4], weights = json[5], students = json.slice(6);
+            let sectionMap = {};
+            for(let i=1; i<headers.length; i++) {
+                let p = (papers[i]||"Paper 1").trim(), s = (sections[i]||"Part A").trim(), uniqueKey = `${p} - ${s}`, w = parseFloat(weights[i])||0;
+                if(!sectionMap[uniqueKey]) sectionMap[uniqueKey] = { id: uniqueKey, paper: p, section: s, rawMax: 0, indices: [] };
+                sectionMap[uniqueKey].rawMax += w; sectionMap[uniqueKey].indices.push(i);
+            }
+            rawData = { headers, papers, sections, topics, keys, weights, students, sectionMap };
+            
+            const tbody = document.getElementById('configBody'); tbody.innerHTML = "";
+            let keysArr = Object.keys(sectionMap), defW = Math.floor(100/keysArr.length);
+            keysArr.forEach(k => tbody.innerHTML += `<tr><td>${k}</td><td><input class="w-input" data-sec="${k}" value="${defW}" type="number" oninput="updateWeightSum()"></td></tr>`);
+            updateWeightSum();
+            document.getElementById('step1').style.display = 'none'; document.getElementById('step2').style.display = 'block';
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function updateWeightSum() {
+        let sum = 0;
+        document.querySelectorAll('.w-input').forEach(i => sum += parseFloat(i.value)||0);
+        document.getElementById('weightSumDisplay').innerText = `目前權重總和: ${sum}`;
+    }
+
+    function runAnalysis() {
+        let secWeights = {}, totalWeightSum = 0;
+        document.querySelectorAll('.w-input').forEach(i => { let w = parseFloat(i.value)||0; secWeights[i.dataset.sec] = w; totalWeightSum += w; });
+        if(totalWeightSum === 0) totalWeightSum = 100;
+
+        let cuts = { c5ss: parseFloat(document.getElementById('c5ss').value), c5s: parseFloat(document.getElementById('c5s').value), c5: parseFloat(document.getElementById('c5').value), c4: parseFloat(document.getElementById('c4').value), c3: parseFloat(document.getElementById('c3').value), c2: parseFloat(document.getElementById('c2').value), c1: parseFloat(document.getElementById('c1').value) };
+        let topicMap = {}; 
+        for(let c=1; c<rawData.headers.length; c++) {
+            let t = (rawData.topics[c]||"Uncategorized").trim();
+            if(!topicMap[t]) topicMap[t] = { max: 0 };
+            topicMap[t].max += (parseFloat(rawData.weights[c])||0);
+        }
+        let uniqueTopics = Object.keys(topicMap).sort(), processed = [];
+
+        rawData.students.forEach((row, sIdx) => {
+            let name = row[0]; if(!name) return;
+            let sData = { originalIdx: parseInt(sIdx), name, weightedSum: 0, total: 0, sectionScores: {}, topicScores: {}, mcRaw: 0, mcMax: 0, nonMcRaw: 0, nonMcMax: 0, rawAnswers: [] };
+            uniqueTopics.forEach(t => sData.topicScores[t] = 0);
+
+            Object.keys(rawData.sectionMap).forEach(secKey => {
+                let info = rawData.sectionMap[secKey], secRaw = 0;
+                info.indices.forEach(idx => {
+                    let val = row[idx], maxP = parseFloat(rawData.weights[idx])||0, topic = (rawData.topics[idx]||"Uncategorized").trim(), earned = 0, isQ_MC = String(rawData.sections[idx]||"").toUpperCase().includes("MC");
+                    if(isQ_MC) {
+                        let k = String(rawData.keys[idx]).trim().toUpperCase(), u = val?String(val).trim().toUpperCase():"";
+                        if(u === k) earned = maxP;
+                        sData.rawAnswers[idx] = u; sData.mcRaw += earned; sData.mcMax += maxP;
+                    } else { earned = parseFloat(val)||0; sData.rawAnswers[idx] = earned; sData.nonMcRaw += earned; sData.nonMcMax += maxP; }
+                    secRaw += earned; sData.topicScores[topic] += earned;
+                });
+                let wScore = info.rawMax>0 ? (secRaw/info.rawMax)*secWeights[secKey] : 0;
+                sData.sectionScores[secKey] = wScore; sData.weightedSum += wScore;
+            });
+            
+            sData.total = (sData.weightedSum / totalWeightSum) * 100; // v28 normalization
+            let t = sData.total;
+            if(t >= cuts.c5ss) sData.grade = "5**"; else if(t >= cuts.c5s) sData.grade = "5*"; else if(t >= cuts.c5) sData.grade = "5"; else if(t >= cuts.c4) sData.grade = "4"; else if(t >= cuts.c3) sData.grade = "3"; else if(t >= cuts.c2) sData.grade = "2"; else if(t >= cuts.c1) sData.grade = "1"; else sData.grade = "U";
+            processed.push(sData);
+        });
+
+        let scores = processed.map(s => s.total).sort((a,b)=>a-b);
+        let mean = scores.reduce((a,b)=>a+b,0)/scores.length, median = scores.length%2===0 ? (scores[scores.length/2-1]+scores[scores.length/2])/2 : scores[Math.floor(scores.length/2)], sd = Math.sqrt(scores.reduce((a,b)=>a+Math.pow(b-mean,2),0)/scores.length);
+        let mcAvgPerc = processed.reduce((a,s) => a + (s.mcMax>0?s.mcRaw/s.mcMax:0), 0) / processed.length * 100, nonMcAvgPerc = processed.reduce((a,s) => a + (s.nonMcMax>0?s.nonMcRaw/s.nonMcMax:0), 0) / processed.length * 100;
+
+        let topicStats = {}; 
+        uniqueTopics.forEach(t => { let max = topicMap[t].max; if(max > 0) { let sum = processed.reduce((a,s) => a + s.topicScores[t], 0); topicStats[t] = { avgPerc: (sum/processed.length/max)*100, max: max }; } else { topicStats[t] = { avgPerc: 0, max: 0 }; } });
+
+        let sortedS = [...processed].sort((a,b) => b.total - a.total), gSize = Math.max(1, Math.floor(processed.length * 0.27)), itemStats = {};
+        for(let c=1; c<rawData.headers.length; c++) {
+            let maxP = parseFloat(rawData.weights[c])||0, key = String(rawData.keys[c]).trim().toUpperCase(), sectionName = String(rawData.sections[c]).trim(), topic = String(rawData.topics[c]).trim(), pVal = 0, dVal = 0, counts = {A:0,B:0,C:0,D:0};
+            if(sectionName.toUpperCase().includes("MC")) {
+                let hC = sortedS.slice(0, gSize).filter(s => s.rawAnswers[c] === key).length, lC = sortedS.slice(-gSize).filter(s => s.rawAnswers[c] === key).length;
+                dVal = (hC - lC) / gSize; pVal = (processed.filter(s => s.rawAnswers[c] === key).length / processed.length) * 100;
+                processed.forEach(s => { let a=s.rawAnswers[c]; if(counts[a]!==undefined) counts[a]++; });
+            } else {
+                let mH = sortedS.slice(0, gSize).reduce((a,s) => a + (parseFloat(s.rawAnswers[c])||0), 0) / gSize, mL = sortedS.slice(-gSize).reduce((a,s) => a + (parseFloat(s.rawAnswers[c])||0), 0) / gSize;
+                dVal = maxP > 0 ? (mH - mL) / maxP : 0; pVal = (processed.reduce((a,s) => a+(parseFloat(s.rawAnswers[c])||0),0) / processed.length / maxP) * 100;
+            }
+            itemStats[c] = { id: rawData.headers[c], paper: rawData.papers[c], section: sectionName, topic, pVal, dVal, counts, key };
         }
 
-        // 網頁載入時立刻執行
-        window.onload = loadData;
-    </script>
+        finalResults = processed.sort((a,b) => b.total - a.total);
+        globalStats = { mean, median, sd, itemStats, secWeights, totalWeightSum, mcAvgPerc, nonMcAvgPerc, topicStats, uniqueTopics };
+        document.getElementById('step2').style.display = 'none'; document.getElementById('dashboard').style.display = 'block';
+        renderOverview(); renderItemAnalysis(); renderStudentTable(); populateStudentSelect();
+    }
+
+    // Drawing Charts and UI... (Abbreviated to keep structure intact)
+    function renderOverview() {
+        const { mean, median, sd, mcAvgPerc, nonMcAvgPerc, topicStats, uniqueTopics } = globalStats;
+        document.getElementById('ovMean').innerText = mean.toFixed(1); document.getElementById('ovMedian').innerText = median.toFixed(1); document.getElementById('ovSD').innerText = sd.toFixed(1);
+        let counts = {}; gradeOrder.forEach(g => counts[g] = 0); finalResults.forEach(s => counts[s.grade]++);
+        let distinction = counts["5**"] + counts["5*"] + counts["5"] + counts["4"], pass = distinction + counts["3"] + counts["2"];
+        document.getElementById('ovDistinction').innerText = ((distinction/finalResults.length)*100).toFixed(1) + "%"; document.getElementById('ovPass').innerText = ((pass/finalResults.length)*100).toFixed(1) + "%";
+
+        const gTable = document.querySelector('#gradeStatTable tbody'); gTable.innerHTML = "";
+        gradeOrder.forEach(g => { let gClass = "g-" + g.replace('**','ss').replace('*','s').toLowerCase(); gTable.innerHTML += `<tr><td><span class="badge ${gClass}">${g}</span></td><td>${counts[g]}</td><td>${((counts[g]/finalResults.length)*100).toFixed(1)}%</td></tr>`; });
+
+        let maxScore = 100, binSize = 10, distLabels = [], distData = [];
+        for(let i=0; i<maxScore; i+=binSize) { distLabels.push(`${i}`); distData.push(finalResults.filter(s => s.total >= i && s.total < i+binSize).length); }
+        if(charts.scoreDist) charts.scoreDist.destroy();
+        charts.scoreDist = new Chart(document.getElementById('scoreDistChart'), { type:'line', data:{ labels: distLabels, datasets:[{label:'人數', data: distData, borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.2)', fill: true }]}, options: { plugins: { legend: {display:false} }, scales: { y: { beginAtZero: true } } } });
+
+        let tLabels = uniqueTopics, tData = tLabels.map(t => topicStats[t].avgPerc);
+        if(charts.topicDist) charts.topicDist.destroy();
+        charts.topicDist = new Chart(document.getElementById('topicDistChart'), { type: 'bar', data: { labels: tLabels, datasets: [{ label: '班級平均得分率 (%)', data: tData, backgroundColor: '#9b59b6', borderRadius: 4 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { max: 100, beginAtZero: true } } } });
+
+        let scatterDatasets = [];
+        gradeOrder.forEach(g => {
+            let points = []; finalResults.forEach(s => { if(s.grade === g) points.push({ x: s.mcMax>0?(s.mcRaw/s.mcMax)*100:0, y: s.nonMcMax>0?(s.nonMcRaw/s.nonMcMax)*100:0, name: s.name }); });
+            if(points.length > 0) scatterDatasets.push({ label: g, data: points, backgroundColor: gradeColors[g], pointRadius: 5 });
+        });
+        if(charts.quadrant) charts.quadrant.destroy();
+        charts.quadrant = new Chart(document.getElementById('quadrantChart'), { type: 'scatter', data: { datasets: scatterDatasets }, options: { scales: { x: { min:0, max:100, title:{display:true,text:'MC %'} }, y: { min:0, max:100, title:{display:true,text:'LQ %'} } }, plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.raw.name}` } } } } });
+        
+        if(charts.radar) charts.radar.destroy();
+        let rLabels = Object.keys(globalStats.secWeights), rData = rLabels.map(l => (finalResults.reduce((a,s)=>a+(s.sectionScores[l]||0),0)/finalResults.length / globalStats.secWeights[l])*100);
+        charts.radar = new Chart(document.getElementById('radarChart'), { type:'radar', data:{labels:rLabels, datasets:[{label:'班級得分率 (%)', data:rData, backgroundColor:'rgba(52,152,219,0.2)', borderColor:'#3498db'}]}, options:{scales:{r:{min:0,max:100}}}});
+    }
+
+    function renderItemAnalysis() {
+        const tbody = document.querySelector('#itemAnalysisTable tbody'); tbody.innerHTML = "";
+        Object.values(globalStats.itemStats).forEach(item => {
+            let diClass = item.dVal >= 0.4 ? "di-good" : (item.dVal >= 0.2 ? "di-warn" : "di-bad"), distHTML = '-';
+            if(item.section.toUpperCase().includes("MC")) {
+                let keyCount = item.counts[item.key] || 0;
+                distHTML = ['A','B','C','D'].map(o => {
+                    let count = item.counts[o], isKey = (o === item.key), isTrap = !isKey && (count > keyCount); 
+                    let style = isKey ? "font-weight:bold;color:green" : (isTrap ? "font-weight:bold;color:red;text-decoration:underline;" : "");
+                    return `<span style="${style}">${o}:${count}${isTrap?'⚠️':''}</span>`;
+                }).join(' ');
+            }
+            tbody.innerHTML += `<tr><td>${item.paper}</td><td>${item.section}</td><td>${item.id}</td><td>${item.pVal.toFixed(0)}%</td><td><span class="badge ${diClass}">${item.dVal.toFixed(2)}</span></td><td style="text-align:left; white-space:nowrap;">${distHTML}</td></tr>`;
+        });
+    }
+
+    function renderStudentTable() {
+        let mode = document.getElementById('sortMode').value, list = [...finalResults];
+        if(mode === 'rank') list.sort((a,b) => b.total - a.total); else list.sort((a,b) => a.originalIdx - b.originalIdx);
+        const tbody = document.querySelector('#studentTable tbody'), thead = document.querySelector('#studentTable thead');
+        let hHTML = `<tr><th>排</th><th>名</th><th>等</th><th>分(100)</th>`; Object.keys(globalStats.secWeights).forEach(k => hHTML += `<th>${k}</th>`);
+        thead.innerHTML = hHTML + "</tr>"; tbody.innerHTML = "";
+        list.forEach((s, i) => {
+            let gClass = "g-" + s.grade.replace('**','ss').replace('*','s').toLowerCase();
+            let row = `<tr><td>${mode==='rank'?(i+1):'-'}</td><td>${s.name}</td><td><span class="badge ${gClass}">${s.grade}</span></td><td>${s.total.toFixed(1)}</td>`;
+            Object.keys(globalStats.secWeights).forEach(k => row += `<td>${s.sectionScores[k].toFixed(1)}</td>`);
+            tbody.innerHTML += row + "</tr>";
+        });
+    }
+
+    function populateStudentSelect() {
+        const sel = document.getElementById('studentSelect'); sel.innerHTML = "<option value=''>-- 選擇 --</option>";
+        [...finalResults].sort((a,b)=>a.originalIdx - b.originalIdx).forEach(s => sel.innerHTML += `<option value="${s.originalIdx}">${s.name}</option>`);
+    }
+
+    function renderIndividualReport() {
+        let idx = document.getElementById('studentSelect').value; if(idx==="") return document.getElementById('reportArea').style.display='none';
+        let s = finalResults.find(st => st.originalIdx == idx);
+        document.getElementById('reportArea').style.display='block';
+        document.getElementById('repName').innerText = s.name; document.getElementById('repScore').innerText = s.total.toFixed(1);
+        let gEl = document.getElementById('repGrade'); gEl.innerText = s.grade; gEl.className = "badge g-" + s.grade.replace('**','ss').replace('*','s').toLowerCase();
+        
+        const tbody = document.getElementById('repTableBody'); tbody.innerHTML = "";
+        let labels = Object.keys(globalStats.secWeights), rDataS = [], rDataC = [];
+        labels.forEach(sec => {
+            let uScore = s.sectionScores[sec], cAvg = finalResults.reduce((a, st) => a + (st.sectionScores[sec]||0), 0) / finalResults.length;
+            rDataS.push((uScore/globalStats.secWeights[sec])*100); rDataC.push((cAvg/globalStats.secWeights[sec])*100);
+            let diff = uScore - cAvg, status = diff >= 2 ? "👍 優異" : (diff <= -2 ? "⚠️ 加強" : "⚪ 平均");
+            tbody.innerHTML += `<tr><td>${sec}</td><td>${uScore.toFixed(1)}</td><td>${cAvg.toFixed(1)}</td><td>${status}</td></tr>`;
+        });
+        
+        const tBody = document.getElementById('repTopicTableBody'); tBody.innerHTML = ""; let weaks = [];
+        globalStats.uniqueTopics.forEach(t => {
+            let max = globalStats.topicStats[t].max; if(max === 0) return;
+            let myS = s.topicScores[t], myP = (myS/max)*100, cP = globalStats.topicStats[t].avgPerc, diff = myP - cP;
+            let evalStr = diff >= 10 ? "<span style='color:green'>🟢</span>" : (diff <= -10 ? "<span style='color:red'>🔴</span>" : "🟡");
+            if(diff <= -10) weaks.push(t);
+            tBody.innerHTML += `<tr><td style="text-align:left">${t}</td><td>${max}</td><td>${myS.toFixed(1)}</td><td>${myP.toFixed(0)}%</td><td>${cP.toFixed(0)}%</td><td>${evalStr}</td></tr>`;
+        });
+
+        document.getElementById('repComment').innerText = weaks.length===0 ? "表現穩定，請繼續保持。" : `加強課題：${weaks.join('、')}。`;
+        
+        if(charts.studentRadar) charts.studentRadar.destroy();
+        charts.studentRadar = new Chart(document.getElementById('studentRadarChart'), { type:'radar', data:{labels, datasets:[{label:'個人', data:rDataS, borderColor:'#e74c3c', backgroundColor:'rgba(231,76,60,0.2)'},{label:'班平', data:rDataC, borderColor:'#7f8c8d', borderDash:[5,5], fill:false}]}, options:{scales:{r:{min:0,max:100}}, maintainAspectRatio:false}});
+    }
+
+    function printPage(page) {
+        let bodyClass = page === 'overview' ? 'print-overview' : (page === 'item-analysis' ? 'print-item-analysis' : (page === 'student-list' ? 'print-student-list' : 'print-individual'));
+        document.body.classList.add(bodyClass); window.print(); setTimeout(() => document.body.classList.remove(bodyClass), 1000);
+    }
+
+    async function batchPrint() {
+        if(finalResults.length === 0) return;
+        const overlay = document.getElementById('loading-overlay'), progress = document.getElementById('loading-progress'), mainContainer = document.getElementById('main-container'), batchArea = document.getElementById('batch-print-area');
+        overlay.style.display = 'block'; mainContainer.style.display = 'none'; batchArea.style.display = 'block'; document.body.classList.add('batch-mode');
+        batchArea.innerHTML = ""; 
+        let labels = Object.keys(globalStats.secWeights), cAvgData = labels.map(sec => (finalResults.reduce((a, st) => a + (st.sectionScores[sec]||0), 0) / finalResults.length / globalStats.secWeights[sec])*100), sorted = [...finalResults].sort((a,b) => a.originalIdx - b.originalIdx);
+
+        for (let i = 0; i < sorted.length; i++) {
+            let s = sorted[i]; progress.innerText = `處理第 ${i+1}/${sorted.length} (${s.name})...`;
+            let div = document.createElement('div'); div.className = 'report-box'; div.style.marginBottom = "30px";
+            
+            let topicRows = ""; let weaks = [];
+            globalStats.uniqueTopics.forEach(t => {
+                let max = globalStats.topicStats[t].max; if(max === 0) return;
+                let myS = s.topicScores[t], myP = (myS/max)*100, cP = globalStats.topicStats[t].avgPerc, diff = myP - cP;
+                let evalStr = diff >= 10 ? "🟢強" : (diff <= -10 ? "🔴弱" : "🟡普");
+                if(diff <= -10) weaks.push(t);
+                topicRows += `<tr><td style="text-align:left">${t}</td><td>${max}</td><td>${myS.toFixed(1)}</td><td>${myP.toFixed(0)}%</td><td>${cP.toFixed(0)}%</td><td>${evalStr}</td></tr>`;
+            });
+
+            let secRows = ""; let sRadarData = [];
+            labels.forEach(sec => {
+                let uScore = s.sectionScores[sec], cAvg = finalResults.reduce((a, st) => a + (st.sectionScores[sec]||0), 0) / finalResults.length;
+                sRadarData.push((uScore/globalStats.secWeights[sec])*100);
+                secRows += `<tr><td>${sec}</td><td>${uScore.toFixed(1)}</td><td>${cAvg.toFixed(1)}</td><td>${(uScore-cAvg)>=2?"👍":((uScore-cAvg)<=-2?"⚠️":"⚪")}</td></tr>`;
+            });
+
+            div.innerHTML = `
+                <div class="report-header"><div><h2>${s.name}</h2></div><div style="text-align:right;"><span style="font-size:24px; margin-right:10px;">${s.total.toFixed(1)}</span><span class="badge g-${s.grade.replace('**','ss').replace('*','s').toLowerCase()}" style="font-size:24px;">${s.grade}</span></div></div>
+                <div style="display:flex; gap:10px; flex-direction:column;">
+                    <div><div class="sub-title" style="margin-top:0;">1. 分卷成績</div><table><thead><tr style="background:#f1f1f1;"><th>部分</th><th>得分</th><th>平均</th><th>評語</th></tr></thead><tbody>${secRows}</tbody></table></div>
+                    <div style="width:100%; height:250px; position:relative;" id="chart-container-${i}"><canvas id="batch-chart-canvas-${i}"></canvas></div>
+                </div>
+                <div style="margin-top:20px;"><div class="sub-title">2. 課題強弱</div><table><thead><tr style="background:#f1f1f1;"><th>課題</th><th>滿分</th><th>得分</th><th>個人%</th><th>班%</th><th>評</th></tr></thead><tbody>${topicRows}</tbody></table></div>
+                <div class="page-break"></div>`;
+            batchArea.appendChild(div);
+
+            let tempChart = new Chart(document.getElementById(`batch-chart-canvas-${i}`), { type: 'radar', data: { labels: labels, datasets: [ { label: '個人', data: sRadarData, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.2)' }, { label: '平均', data: cAvgData, borderColor: '#7f8c8d', borderDash: [5,5], fill: false } ] }, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { r: { min: 0, max: 100 } }, plugins: { legend: { display: false } } } });
+            await new Promise(r => setTimeout(r, 100)); 
+            let imgUrl = tempChart.toBase64Image(); tempChart.destroy();
+            document.getElementById(`chart-container-${i}`).innerHTML = `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:contain;">`;
+        }
+        progress.innerText = "準備列印..."; await new Promise(r => setTimeout(r, 500));
+        overlay.style.display = 'none'; window.print();
+        setTimeout(() => { document.body.classList.remove('batch-mode'); mainContainer.style.display = 'block'; batchArea.style.display = 'none'; }, 1000);
+    }
+
+    function exportToExcel() {
+        let mode = document.getElementById('sortMode').value, list = [...finalResults];
+        if(mode === 'rank') list.sort((a,b) => b.total - a.total); else list.sort((a,b) => a.originalIdx - b.originalIdx);
+        const ws = XLSX.utils.json_to_sheet(list.map((s,i)=>{
+            let row = {排名:mode==='rank'?i+1:'-', 姓名:s.name, 等級:s.grade, 總分:s.total.toFixed(2), ...s.sectionScores};
+            Object.keys(s.topicScores).forEach(t => row[`課題_${t}`] = s.topicScores[t]); return row;
+        }));
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "成績單"); XLSX.writeFile(wb, "v29_Full_Report.xlsx");
+    }
+</script>
 </body>
+
 </html>
+
+
+
+
+
